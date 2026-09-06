@@ -1,0 +1,12 @@
+node_modules/
+.env
+data/db.json
+data/db.sqlite
+data/db.sqlite-shm
+data/db.sqlite-wal
+uploads/events/*
+uploads/resources/*
+uploads/videos/*
+!uploads/events/.gitkeep
+!uploads/resources/.gitkeep
+!uploads/videos/.gitkeep
