@@ -6,12 +6,20 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 body {
   font-family: Arial, Helvetica, sans-serif;
   background: #f0dec5;
   color: #0a463a;
+  overflow-x: hidden;
+}
+
+/* Never let an image push a page wider than the screen. */
+img {
+  max-width: 100%;
+  height: auto;
 }
 
 a {
@@ -164,7 +172,6 @@ button {
 .hero h1 {
   font-size: clamp(40px, 5vw, 50px);
   line-height: 1.05;
-  white-space: nowrap;
   letter-spacing: 3px;
   margin-bottom: 25px;
 }
@@ -541,7 +548,8 @@ footer {
   }
 
   .hero h1 {
-    font-size: 48px;
+    font-size: 34px;
+    letter-spacing: 1px;
   }
 
   .hero-buttons {
