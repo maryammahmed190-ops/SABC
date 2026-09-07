@@ -81,6 +81,7 @@ button {
   position: relative;
 }
 
+
 .profile-letter {
   width: 44px;
   height: 44px;
@@ -107,7 +108,7 @@ button {
   position: absolute;
   right: 0;
   top: 57px;
-  width: 250px;
+  width: 300px;
   padding: 22px;
   background: #fff4e4;
   border-radius: 16px;
@@ -496,7 +497,7 @@ footer {
   display: flex;
   justify-content: space-around;
   gap: 100px;
-  padding:50px;
+  padding:20px;
 }
 .copyright{
   margin-top:50px;
