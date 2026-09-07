@@ -9,7 +9,7 @@ const { requireRole } = require("../middleware/auth");
 const router = express.Router();
 
 const VALID_TYPES = ["explanation", "connection", "video", "test_bank"];
-const VALID_LOS = ["LO1", "LO2", "LO3", "LO4", "LO5", "LO6", "LO7"];
+const VALID_LOS = ["LO1", "LO2", "LO3", "LO4", "LO5", "LO6", "LO7", "LO8"];
 
 function folderFor(type) {
   return type === "video" ? "videos" : "resources";

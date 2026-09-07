@@ -115,6 +115,7 @@ const learningOutcomes = [
   "LO5",
   "LO6",
   "LO7",
+  "LO8",
 ];
 
 
