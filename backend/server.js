@@ -14,6 +14,7 @@ const resourcesRoutes = require("./src/routes/resources");
 const questionsRoutes = require("./src/routes/questions");
 const quizRoutes = require("./src/routes/quiz");
 const usersRoutes = require("./src/routes/users");
+const { seedDefaultAccounts } = require("./src/seed");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -32,6 +33,10 @@ const FRONTEND_DIR = process.env.FRONTEND_DIR
   fs.mkdirSync(path.join(__dirname, "uploads", dir), { recursive: true });
 });
 fs.mkdirSync(path.join(__dirname, "data"), { recursive: true });
+
+// Make sure the admin & academic accounts exist on every start (see
+// src/seed.js for why this is needed on hosts like Railway).
+seedDefaultAccounts();
 
 app.set("trust proxy", 1);
 
