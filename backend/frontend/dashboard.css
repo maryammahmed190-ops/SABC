@@ -31,3 +31,35 @@
 .results-table tr:hover {
   background: #f8faf9;
 }
+
+/* ================= BULK QUIZ QUESTIONS ================= */
+
+.hint-text {
+  font-size: 13px;
+  color: #66756f;
+  margin: 6px 0 0;
+}
+
+.question-block {
+  border: 1px solid #e0e8e5;
+  border-radius: 10px;
+  padding: 14px;
+  margin: 14px 0;
+  background: #fbfdfc;
+}
+
+.question-block h4 {
+  margin: 0;
+}
+
+#addQuestionBlockBtn {
+  display: block;
+  width: 100%;
+  margin: 4px 0 16px;
+}
+
+#quizSettingsPublishBtn {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+}

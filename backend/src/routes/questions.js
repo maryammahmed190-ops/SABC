@@ -119,6 +119,70 @@ router.post("/", requireRole("admin", "academic"), (req, res) => {
 });
 
 // =========================
+// POST /api/questions/bulk  (admin or academic team)
+// json: { category, lo, questions: [{ question, options?, answer, explanation? }, ...] }
+// Adds a whole batch of questions in one request, so a quiz's questions
+// are uploaded together instead of one at a time. Either every question
+// in the batch is saved, or none are (validated up front).
+// =========================
+router.post("/bulk", requireRole("admin", "academic"), (req, res) => {
+  const { category, lo, questions } = req.body || {};
+
+  if (!VALID_CATEGORIES.includes(category)) {
+    return res
+      .status(400)
+      .json({ error: "Invalid category. Use quiz or test_bank." });
+  }
+  if (!VALID_LOS.includes(lo)) {
+    return res.status(400).json({ error: "Invalid learning outcome." });
+  }
+  if (!Array.isArray(questions) || questions.length === 0) {
+    return res.status(400).json({ error: "Add at least one question." });
+  }
+
+  for (let i = 0; i < questions.length; i++) {
+    const item = questions[i] || {};
+    if (!item.question || !item.answer) {
+      return res.status(400).json({
+        error: `Question ${i + 1}: question and answer are required.`,
+      });
+    }
+    if (
+      category === "quiz" &&
+      (!Array.isArray(item.options) || item.options.length < 2)
+    ) {
+      return res.status(400).json({
+        error: `Question ${i + 1}: quiz questions need at least two options.`,
+      });
+    }
+  }
+
+  const db = readDB();
+  const createdAt = new Date().toISOString();
+  const ids = [];
+
+  questions.forEach((item) => {
+    const q = {
+      id: nextId(db, "questions"),
+      category,
+      lo,
+      question: String(item.question).trim(),
+      options:
+        category === "quiz" ? item.options.map(String) : undefined,
+      answer: String(item.answer).trim(),
+      explanation: item.explanation ? String(item.explanation).trim() : "",
+      createdAt,
+    };
+    db.questions.push(q);
+    ids.push(q.id);
+  });
+
+  writeDB(db);
+
+  res.status(201).json({ message: `${ids.length} question(s) added.`, ids });
+});
+
+// =========================
 // DELETE /api/questions/:id  (admin or academic team)
 // =========================
 router.delete("/:id", requireRole("admin", "academic"), (req, res) => {

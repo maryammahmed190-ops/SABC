@@ -13,6 +13,8 @@ const eventsRoutes = require("./src/routes/events");
 const resourcesRoutes = require("./src/routes/resources");
 const questionsRoutes = require("./src/routes/questions");
 const quizRoutes = require("./src/routes/quiz");
+const quizSettingsRoutes = require("./src/routes/quizSettings");
+const certificatesRoutes = require("./src/routes/certificates");
 const usersRoutes = require("./src/routes/users");
 const { seedDefaultAccounts } = require("./src/seed");
 
@@ -29,7 +31,7 @@ const FRONTEND_DIR = process.env.FRONTEND_DIR
   : path.join(__dirname, "..", "frontend");
 
 // Make sure upload/data folders exist even on a fresh clone.
-["events", "resources", "videos"].forEach((dir) => {
+["events", "resources", "videos", "certificates"].forEach((dir) => {
   fs.mkdirSync(path.join(__dirname, "uploads", dir), { recursive: true });
 });
 fs.mkdirSync(path.join(__dirname, "data"), { recursive: true });
@@ -76,6 +78,8 @@ app.use("/api/events", eventsRoutes);
 app.use("/api/resources", resourcesRoutes);
 app.use("/api/questions", questionsRoutes);
 app.use("/api/quiz", quizRoutes);
+app.use("/api/quiz-settings", quizSettingsRoutes);
+app.use("/api/certificates", certificatesRoutes);
 app.use("/api/admin/users", usersRoutes);
 
 // Uploaded files (event images, resource files, videos)
