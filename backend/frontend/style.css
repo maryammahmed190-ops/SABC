@@ -887,3 +887,33 @@ footer {
 }
 
 
+/* ================= GUIDE PAGE ================= */
+
+.guide-source {
+  margin-top: 18px;
+  padding: 14px 18px;
+  background: #f0dec5;
+  border-radius: 12px;
+}
+
+.guide-source h4 {
+  font-size: 13px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #0a463a;
+  margin-bottom: 6px;
+}
+
+.guide-source ul {
+  list-style: none;
+}
+
+.guide-source li {
+  color: #66736f;
+  line-height: 1.6;
+  padding: 3px 0;
+}
+
+.guide-source li strong {
+  color: #0a463a;
+}
