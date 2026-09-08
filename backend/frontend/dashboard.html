@@ -175,15 +175,19 @@
       <div class="admin-grid">
 
 
-        <!-- ADD QUESTION -->
+        <!-- ADD QUESTIONS (uploaded together as one batch) -->
 
         <form
           id="questionForm"
           class="admin-card">
 
           <h3>
-            Add a quiz question
+            Add quiz questions
           </h3>
+
+          <p class="hint-text">
+            Add as many questions as you like below, then upload them all together with one click.
+          </p>
 
 
           <label>
@@ -194,54 +198,24 @@
           </label>
 
 
-          <label>
-            Question
-
-            <textarea
-              id="questionText"
-              required>
-            </textarea>
-
-          </label>
+          <div id="questionBlocks"></div>
 
 
-          <label>
-            Quiz options
+          <button
+            type="button"
+            id="addQuestionBlockBtn"
+            class="small-btn">
 
-            <textarea
-              id="questionOptions"
-              placeholder="One option per line"
-              required>
-            </textarea>
+            + Add another question
 
-          </label>
-
-
-          <label>
-            Correct answer
-
-            <input
-              id="questionAnswer"
-              required>
-
-          </label>
-
-
-          <label>
-            Explanation
-
-            <textarea
-              id="questionExplanation">
-            </textarea>
-
-          </label>
+          </button>
 
 
           <button
             class="main-btn"
             type="submit">
 
-            Add Quiz Question
+            Upload All Questions
 
           </button>
 
@@ -287,6 +261,136 @@
 
           <div
             id="questionsList"
+            class="items-list">
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+
+    <!-- ================================================= -->
+    <!-- ================= QUIZ SETTINGS ================== -->
+    <!-- ================================================= -->
+
+    <section
+      class="dashboard-section"
+      id="quizSettingsSection">
+
+      <div class="section-title">
+
+        <div>
+
+          <p class="eyebrow">
+            CONTENT
+          </p>
+
+          <h2>
+            Quiz Settings
+          </h2>
+
+          <p>
+            Set the quiz description and time limit for a Learning Outcome, and publish it when it's ready. Students only see the description and the Start Now button once it's published.
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <div class="admin-grid">
+
+
+        <!-- QUIZ SETTINGS FORM -->
+
+        <form
+          id="quizSettingsForm"
+          class="admin-card">
+
+          <h3>
+            Quiz description & timer
+          </h3>
+
+
+          <label>
+            Learning Outcome
+
+            <select id="quizSettingsLO"></select>
+
+          </label>
+
+
+          <label>
+            Quiz description
+
+            <textarea
+              id="quizSettingsDescription"
+              placeholder="Shown to students before they start the quiz">
+            </textarea>
+
+          </label>
+
+
+          <label>
+            Duration (minutes)
+
+            <input
+              id="quizSettingsDuration"
+              type="number"
+              min="1"
+              placeholder="e.g. 20">
+
+          </label>
+
+
+          <button
+            class="main-btn"
+            type="submit">
+
+            Save Settings
+
+          </button>
+
+
+          <button
+            type="button"
+            id="quizSettingsPublishBtn"
+            class="small-btn">
+
+            Publish Quiz
+
+          </button>
+
+        </form>
+
+
+
+        <!-- EXISTING QUIZ SETTINGS -->
+
+        <div class="admin-card list-card">
+
+          <div class="list-header">
+
+            <h3>
+              Quiz status by LO
+            </h3>
+
+            <button
+              id="refreshQuizSettings"
+              class="small-btn">
+
+              Refresh
+
+            </button>
+
+          </div>
+
+
+          <div
+            id="quizSettingsList"
             class="items-list">
           </div>
 

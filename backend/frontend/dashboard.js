@@ -127,6 +127,9 @@ function fillLearningOutcomes() {
     "#resourceListLO",
   ];
 
+  // These selects always need one specific LO chosen — no "All" option.
+  const singleLOSelectors = ["#quizSettingsLO"];
+
   selectors.forEach((selector) => {
     const select = $(selector);
 
@@ -140,6 +143,23 @@ function fillLearningOutcomes() {
     allOption.textContent = "All Learning Outcomes";
 
     select.appendChild(allOption);
+
+    learningOutcomes.forEach((lo) => {
+      const option = document.createElement("option");
+
+      option.value = lo;
+      option.textContent = lo;
+
+      select.appendChild(option);
+    });
+  });
+
+  singleLOSelectors.forEach((selector) => {
+    const select = $(selector);
+
+    if (!select) return;
+
+    select.innerHTML = "";
 
     learningOutcomes.forEach((lo) => {
       const option = document.createElement("option");
@@ -383,49 +403,94 @@ async function loadQuestions() {
 }
 
 
-// ================= ADD QUESTION =================
+// ================= ADD QUESTIONS (BULK) =================
+//
+// Questions are built up as a list of blocks in the form and uploaded
+// together in a single request, instead of one question at a time.
+
+let questionBlockCount = 0;
+
+function questionBlockTemplate(n) {
+  return `
+    <div class="question-block" data-block="${n}">
+
+      <div class="list-header">
+        <h4>Question ${n}</h4>
+        <button type="button" class="small-btn danger-btn" data-remove-block="${n}">Remove</button>
+      </div>
+
+      <label>
+        Question
+        <textarea class="qb-question" required></textarea>
+      </label>
+
+      <label>
+        Quiz options
+        <textarea class="qb-options" placeholder="One option per line" required></textarea>
+      </label>
+
+      <label>
+        Correct answer
+        <input class="qb-answer" required>
+      </label>
+
+      <label>
+        Explanation
+        <textarea class="qb-explanation"></textarea>
+      </label>
+
+    </div>
+  `;
+}
+
+function renumberQuestionBlocks() {
+  const blocks = document.querySelectorAll("#questionBlocks .question-block");
+  blocks.forEach((block, index) => {
+    const heading = block.querySelector("h4");
+    if (heading) heading.textContent = `Question ${index + 1}`;
+  });
+}
+
+function addQuestionBlockUI() {
+  const container = $("#questionBlocks");
+  if (!container) return;
+
+  questionBlockCount += 1;
+
+  const wrapper = document.createElement("div");
+  wrapper.innerHTML = questionBlockTemplate(questionBlockCount).trim();
+  const block = wrapper.firstElementChild;
+
+  container.appendChild(block);
+
+  block
+    .querySelector("[data-remove-block]")
+    ?.addEventListener("click", () => {
+      // Always keep at least one block so the form has somewhere to type.
+      if (document.querySelectorAll("#questionBlocks .question-block").length <= 1) {
+        showMessage("At least one question is required.", "error");
+        return;
+      }
+      block.remove();
+      renumberQuestionBlocks();
+    });
+}
+
+function resetQuestionBlocks() {
+  const container = $("#questionBlocks");
+  if (!container) return;
+  container.innerHTML = "";
+  questionBlockCount = 0;
+  addQuestionBlockUI();
+}
 
 async function addQuestion(event) {
 
   event.preventDefault();
 
-
-  const question =
-    $("#questionText")?.value.trim() ||
-    "";
-
-
-  const optionsText =
-    $("#questionOptions")?.value.trim() ||
-    "";
-
-
-  const answer =
-    $("#questionAnswer")?.value.trim() ||
-    "";
-
-
-  const explanation =
-    $("#questionExplanation")?.value.trim() ||
-    "";
-
-
   const lo =
     $("#questionLO")?.value ||
     "";
-
-
-  // QUESTION + ANSWER
-  if (!question || !answer) {
-
-    showMessage(
-      "Question and answer are required.",
-      "error"
-    );
-
-    return;
-  }
-
 
   // LEARNING OUTCOME
   if (!lo) {
@@ -438,29 +503,47 @@ async function addQuestion(event) {
     return;
   }
 
+  const blocks = Array.from(
+    document.querySelectorAll("#questionBlocks .question-block")
+  );
 
-  // OPTIONS
-  const options = optionsText
-    .split("\n")
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-
-  if (options.length < 2) {
-
-    showMessage(
-      "Quiz questions need at least two options.",
-      "error"
-    );
-
+  if (!blocks.length) {
+    showMessage("Add at least one question.", "error");
     return;
   }
 
+  const questions = [];
+
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+
+    const question = block.querySelector(".qb-question")?.value.trim() || "";
+    const optionsText = block.querySelector(".qb-options")?.value.trim() || "";
+    const answer = block.querySelector(".qb-answer")?.value.trim() || "";
+    const explanation = block.querySelector(".qb-explanation")?.value.trim() || "";
+
+    if (!question || !answer) {
+      showMessage(`Question ${i + 1}: question and answer are required.`, "error");
+      return;
+    }
+
+    const options = optionsText
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    if (options.length < 2) {
+      showMessage(`Question ${i + 1}: quiz questions need at least two options.`, "error");
+      return;
+    }
+
+    questions.push({ question, options, answer, explanation });
+  }
 
   try {
 
-    await api(
-      "/api/questions",
+    const result = await api(
+      "/api/questions/bulk",
       {
         method: "POST",
 
@@ -472,20 +555,17 @@ async function addQuestion(event) {
         body: JSON.stringify({
           category: "quiz",
           lo: lo,
-          question: question,
-          options: options,
-          answer: answer,
-          explanation: explanation,
+          questions: questions,
         }),
       }
     );
 
 
-    $("#questionForm")?.reset();
+    resetQuestionBlocks();
 
 
     showMessage(
-      "Quiz question added successfully."
+      result.message || "Quiz questions added successfully."
     );
 
 
@@ -505,6 +585,188 @@ async function addQuestion(event) {
       error.message,
       "error"
     );
+  }
+}
+
+
+// ================= QUIZ SETTINGS (description + timer + publish) =================
+
+let quizSettingsCache = [];
+
+async function loadQuizSettings() {
+
+  const list = $("#quizSettingsList");
+
+  try {
+
+    const settings = await api("/api/quiz-settings");
+
+    quizSettingsCache = Array.isArray(settings) ? settings : [];
+
+    fillQuizSettingsFormFromCache();
+
+    if (!list) return;
+
+    if (!quizSettingsCache.length) {
+      list.innerHTML = `
+        <div class="empty-state">
+          No quiz settings saved yet.
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML = learningOutcomes
+      .map((lo) => {
+        const s = quizSettingsCache.find((item) => item.lo === lo);
+
+        return `
+          <div class="item-row">
+            <h4>${esc(lo)}</h4>
+            <p>
+              <strong>Status:</strong>
+              ${s && s.published ? "Published" : "Not published"}
+            </p>
+            ${
+              s && s.duration
+                ? `<p><strong>Duration:</strong> ${esc(String(s.duration))} minutes</p>`
+                : ""
+            }
+            ${
+              s && s.description
+                ? `<p>${esc(s.description)}</p>`
+                : ""
+            }
+          </div>
+        `;
+      })
+      .join("");
+
+  } catch (error) {
+
+    console.error("Quiz settings loading error:", error);
+
+    if (list) {
+      list.innerHTML = `
+        <div class="empty-state">
+          Failed to load quiz settings.
+        </div>
+      `;
+    }
+  }
+}
+
+function fillQuizSettingsFormFromCache() {
+
+  const lo = $("#quizSettingsLO")?.value || "";
+
+  const existing = quizSettingsCache.find((item) => item.lo === lo);
+
+  if ($("#quizSettingsDescription")) {
+    $("#quizSettingsDescription").value = existing?.description || "";
+  }
+
+  if ($("#quizSettingsDuration")) {
+    $("#quizSettingsDuration").value = existing?.duration || "";
+  }
+
+  const publishBtn = $("#quizSettingsPublishBtn");
+
+  if (publishBtn) {
+    const isPublished = !!existing?.published;
+    publishBtn.textContent = isPublished ? "Unpublish Quiz" : "Publish Quiz";
+  }
+}
+
+async function saveQuizSettings(event) {
+
+  event.preventDefault();
+
+  const lo = $("#quizSettingsLO")?.value || "";
+
+  if (!lo) {
+    showMessage("Please select a Learning Outcome.", "error");
+    return;
+  }
+
+  const description = $("#quizSettingsDescription")?.value.trim() || "";
+  const durationRaw = $("#quizSettingsDuration")?.value.trim() || "";
+
+  if (durationRaw && (!Number(durationRaw) || Number(durationRaw) <= 0)) {
+    showMessage("Duration must be a positive number of minutes.", "error");
+    return;
+  }
+
+  try {
+
+    await api(`/api/quiz-settings/${encodeURIComponent(lo)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        description,
+        duration: durationRaw ? Number(durationRaw) : null,
+      }),
+    });
+
+    showMessage("Quiz settings saved.");
+
+    await loadQuizSettings();
+
+  } catch (error) {
+
+    console.error("Save quiz settings error:", error);
+    showMessage(error.message, "error");
+  }
+}
+
+async function toggleQuizPublish() {
+
+  const lo = $("#quizSettingsLO")?.value || "";
+
+  if (!lo) {
+    showMessage("Please select a Learning Outcome.", "error");
+    return;
+  }
+
+  const existing = quizSettingsCache.find((item) => item.lo === lo);
+  const nextPublished = !existing?.published;
+
+  if (
+    nextPublished &&
+    !$("#quizSettingsDescription")?.value.trim() &&
+    !existing?.description
+  ) {
+    showMessage(
+      "Add a quiz description before publishing.",
+      "error"
+    );
+    return;
+  }
+
+  try {
+
+    await api(`/api/quiz-settings/${encodeURIComponent(lo)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        description: $("#quizSettingsDescription")?.value.trim() || existing?.description || "",
+        duration: $("#quizSettingsDuration")?.value.trim()
+          ? Number($("#quizSettingsDuration").value.trim())
+          : existing?.duration || null,
+        published: nextPublished,
+      }),
+    });
+
+    showMessage(
+      nextPublished ? "Quiz published." : "Quiz unpublished."
+    );
+
+    await loadQuizSettings();
+
+  } catch (error) {
+
+    console.error("Publish quiz error:", error);
+    showMessage(error.message, "error");
   }
 }
 
@@ -1519,6 +1781,41 @@ function setupEventListeners() {
     );
 
 
+  $("#addQuestionBlockBtn")
+    ?.addEventListener(
+      "click",
+      addQuestionBlockUI
+    );
+
+
+  $("#quizSettingsForm")
+    ?.addEventListener(
+      "submit",
+      saveQuizSettings
+    );
+
+
+  $("#quizSettingsPublishBtn")
+    ?.addEventListener(
+      "click",
+      toggleQuizPublish
+    );
+
+
+  $("#quizSettingsLO")
+    ?.addEventListener(
+      "change",
+      fillQuizSettingsFormFromCache
+    );
+
+
+  $("#refreshQuizSettings")
+    ?.addEventListener(
+      "click",
+      loadQuizSettings
+    );
+
+
   $("#resourceListType")
     ?.addEventListener(
       "change",
@@ -1606,6 +1903,8 @@ async function initDashboard() {
 
   fillLearningOutcomes();
 
+  resetQuestionBlocks();
+
   setupAccess();
 
   setupEventListeners();
@@ -1620,6 +1919,8 @@ async function initDashboard() {
   ) {
 
     await loadQuestions();
+
+    await loadQuizSettings();
 
     await loadResources();
 

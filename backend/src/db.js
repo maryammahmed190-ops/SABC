@@ -105,6 +105,19 @@ sqlite.exec(`
     value TEXT
   );
 
+  -- Per-LO quiz settings: the description shown on the LO page and the
+  -- exam duration (minutes), both set from the dashboard. "published"
+  -- controls whether students can see the description / Start Now
+  -- button at all — until an admin/academic publishes it, the quiz
+  -- stays hidden on the LO page.
+  CREATE TABLE IF NOT EXISTS quiz_settings (
+    lo TEXT PRIMARY KEY,
+    description TEXT,
+    duration INTEGER,
+    published INTEGER NOT NULL DEFAULT 0,
+    updatedAt TEXT
+  );
+
   CREATE INDEX IF NOT EXISTS idx_resources_type ON resources(type);
   CREATE INDEX IF NOT EXISTS idx_questions_category_lo ON questions(category, lo);
   CREATE INDEX IF NOT EXISTS idx_results_user_lo ON results(userId, lo);
@@ -183,10 +196,15 @@ function readDB() {
 
   const results = sqlite.prepare("SELECT * FROM results ORDER BY id").all();
 
+  const quizSettings = sqlite
+    .prepare("SELECT * FROM quiz_settings ORDER BY lo")
+    .all()
+    .map((s) => ({ ...s, published: !!s.published }));
+
   const nextId = {};
   for (const c of COLLECTIONS) nextId[c] = getCounter(c);
 
-  return { users, events, resources, questions, results, nextId };
+  return { users, events, resources, questions, results, quizSettings, nextId };
 }
 
 function writeDB(data) {
@@ -198,6 +216,7 @@ function writeDB(data) {
     sqlite.prepare("DELETE FROM resources").run();
     sqlite.prepare("DELETE FROM questions").run();
     sqlite.prepare("DELETE FROM results").run();
+    sqlite.prepare("DELETE FROM quiz_settings").run();
 
     const insUser = sqlite.prepare(`
       INSERT INTO users (id, name, email, passwordHash, grade, school, role, createdAt)
@@ -281,6 +300,20 @@ function writeDB(data) {
         total: n(r.total),
         percentage: n(r.percentage),
         date: n(r.date) || new Date().toISOString(),
+      });
+    }
+
+    const insQuizSettings = sqlite.prepare(`
+      INSERT INTO quiz_settings (lo, description, duration, published, updatedAt)
+      VALUES (@lo, @description, @duration, @published, @updatedAt)
+    `);
+    for (const s of data.quizSettings || []) {
+      insQuizSettings.run({
+        lo: s.lo,
+        description: n(s.description),
+        duration: n(s.duration),
+        published: s.published ? 1 : 0,
+        updatedAt: n(s.updatedAt) || new Date().toISOString(),
       });
     }
 
