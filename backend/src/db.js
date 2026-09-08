@@ -136,7 +136,13 @@ sqlite.exec(`
   CREATE INDEX IF NOT EXISTS idx_certificates_user ON certificates(userId);
 `);
 
-const COLLECTIONS = ["users", "events", "resources", "questions", "certificates"];
+const COLLECTIONS = [
+  "users",
+  "events",
+  "resources",
+  "questions",
+  "certificates",
+];
 
 // -------------------------
 // One-time migration: if an old db.json exists and SQLite is still
@@ -169,7 +175,9 @@ function migrateFromJsonIfNeeded() {
       questions: (old.nextId && old.nextId.questions) || 1,
     },
   });
-  console.log("Import complete. The old db.json is left untouched on disk as a backup.");
+  console.log(
+    "Import complete. The old db.json is left untouched on disk as a backup.",
+  );
 }
 
 function getCounter(collection) {
@@ -183,7 +191,7 @@ function setCounter(collection, value) {
   sqlite
     .prepare(
       `INSERT INTO meta (key, value) VALUES (@key, @value)
-       ON CONFLICT(key) DO UPDATE SET value = excluded.value`
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
     )
     .run({ key: `nextId_${collection}`, value: String(value) });
 }
@@ -221,7 +229,16 @@ function readDB() {
   const nextId = {};
   for (const c of COLLECTIONS) nextId[c] = getCounter(c);
 
-  return { users, events, resources, questions, results, quizSettings, certificates, nextId };
+  return {
+    users,
+    events,
+    resources,
+    questions,
+    results,
+    quizSettings,
+    certificates,
+    nextId,
+  };
 }
 
 function writeDB(data) {
