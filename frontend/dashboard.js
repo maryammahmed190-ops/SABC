@@ -919,16 +919,29 @@ async function loadResources() {
 // too large to store on the app's own disk.
 const LINKABLE_RESOURCE_TYPES = ["reference", "old_exam"];
 
+// These three are single whole items (one combined guide file, one
+// textbook, one old exam) — not split per Learning Outcome like
+// Explanation/Connection/Test Bank/Video — so no LO field for them.
+const NO_LO_RESOURCE_TYPES = ["guide", "reference", "old_exam"];
+
 function toggleResourceExternalUrlField() {
 
   const type = $("#resourceType")?.value || "";
   const label = $("#resourceExternalUrlLabel");
+  const loLabel = $("#resourceLOLabel");
+  const loSelect = $("#resourceLO");
 
-  if (!label) return;
+  if (label) {
+    label.style.display = LINKABLE_RESOURCE_TYPES.includes(type)
+      ? "block"
+      : "none";
+  }
 
-  label.style.display = LINKABLE_RESOURCE_TYPES.includes(type)
-    ? "block"
-    : "none";
+  if (loLabel) {
+    const needsLo = !NO_LO_RESOURCE_TYPES.includes(type);
+    loLabel.style.display = needsLo ? "block" : "none";
+    if (loSelect) loSelect.disabled = !needsLo;
+  }
 }
 
 
@@ -1031,8 +1044,11 @@ async function addResource(event) {
     fileInput &&
     fileInput.files.length > 0;
 
+  const needsLo =
+    !NO_LO_RESOURCE_TYPES.includes(type);
 
-  if (!type || !lo || !title) {
+
+  if (!type || !title || (needsLo && !lo)) {
 
     showMessage(
       "Please fill in all required fields.",
@@ -1065,10 +1081,13 @@ async function addResource(event) {
   );
 
 
-  formData.append(
-    "lo",
-    lo
-  );
+  if (needsLo) {
+
+    formData.append(
+      "lo",
+      lo
+    );
+  }
 
 
   formData.append(

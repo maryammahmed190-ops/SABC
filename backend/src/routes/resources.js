@@ -26,6 +26,11 @@ const VALID_LOS = ["LO1", "LO2", "LO3", "LO4", "LO5", "LO6", "LO7", "LO8"];
 // for these a plain link is stored and used as-is as the download URL.
 const LINKABLE_TYPES = ["reference", "old_exam"];
 
+// These three are NOT tied to a Learning Outcome — each one is a single
+// whole item (a full textbook, a full old exam, one combined guide
+// file), not split per LO like Explanation/Connection/Test Bank/Video.
+const NO_LO_TYPES = ["guide", "reference", "old_exam"];
+
 function folderFor(type) {
   return type === "video" ? "videos" : "resources";
 }
@@ -66,7 +71,12 @@ router.get("/", (req, res) => {
 
   const db = readDB();
   let list = type ? db.resources.filter((r) => r.type === type) : db.resources;
-  if (lo) list = list.filter((r) => r.lo === lo);
+  // "lo" is meaningless for guide/reference/old_exam (they aren't split
+  // per LO), so a stray ?lo= on those requests is just ignored rather
+  // than filtering everything out.
+  if (lo && !(type && NO_LO_TYPES.includes(type))) {
+    list = list.filter((r) => r.lo === lo);
+  }
 
   res.json(
     list.map((r) => ({
@@ -106,10 +116,15 @@ router.post("/", requireRole("admin", "academic"), (req, res) => {
         error: `Invalid resource type. Use one of: ${VALID_TYPES.join(", ")}.`,
       });
     }
-    if (!VALID_LOS.includes(lo)) {
+
+    // Guide / Reference / Old Exam are single whole items, not split by
+    // Learning Outcome — an LO is never required (and is ignored if sent).
+    const requiresLo = !NO_LO_TYPES.includes(type);
+    if (requiresLo && !VALID_LOS.includes(lo)) {
       if (req.file) fs.unlink(req.file.path, () => {});
       return res.status(400).json({ error: "Invalid learning outcome." });
     }
+
     if (!title) {
       if (req.file) fs.unlink(req.file.path, () => {});
       return res.status(400).json({ error: "Title is required." });
@@ -152,7 +167,7 @@ router.post("/", requireRole("admin", "academic"), (req, res) => {
     const resource = {
       id: nextId(db, "resources"),
       type,
-      lo,
+      lo: requiresLo ? lo : null,
       title: String(title).trim(),
       description: description ? String(description).trim() : "",
       filename: req.file ? req.file.filename : null,

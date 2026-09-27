@@ -295,12 +295,6 @@ function connectLOCards() {
     type = "connection";
   } else if (path.includes("videos")) {
     type = "video";
-  } else if (path.includes("guide")) {
-    type = "guide";
-  } else if (path.includes("old-exam")) {
-    type = "old_exam";
-  } else if (path.includes("reference")) {
-    type = "reference";
   }
 
   if (!type) return;
@@ -344,9 +338,6 @@ async function loadLOPage() {
       "connection",
       "test_bank",
       "video",
-      "guide",
-      "reference",
-      "old_exam",
     ];
 
     if (RESOURCE_LIST_TYPES.includes(type)) {
@@ -697,3 +688,36 @@ function escapeAttr(value) {
 }
 
 loadLOPage();
+
+// =========================
+// FLAT RESOURCE PAGES — Guide, Reference, Old Exam
+// These aren't split per Learning Outcome (unlike Explanation/
+// Connection/Test Bank/Video): each is just a plain list of whole
+// items (one combined guide file, one row per textbook, one row per
+// old exam), so the page lists everything of that type directly
+// instead of going through the LO-grid / lo.html flow.
+// =========================
+
+async function loadFlatResourcePage() {
+  const container = document.getElementById("flatResourceContent");
+
+  if (!container) return;
+
+  const type = container.dataset.resourceType;
+
+  if (!type) return;
+
+  try {
+    const resources = await api(`/api/resources?type=${encodeURIComponent(type)}`);
+    renderResources(container, resources);
+  } catch (error) {
+    container.innerHTML = `
+      <div class="content-card">
+        <h3>Error</h3>
+        <p>${escapeHtml(error.message)}</p>
+      </div>
+    `;
+  }
+}
+
+loadFlatResourcePage();
