@@ -47,10 +47,10 @@ router.get("/", (req, res) => {
 });
 
 // =========================
-// POST /api/events  (admin only — Academic/IT team)
+// POST /api/events  (admin or academic team)
 // form-data: title, description, event_date, image (file, optional)
 // =========================
-router.post("/", requireRole("admin"), (req, res) => {
+router.post("/", requireRole("admin", "academic"), (req, res) => {
   upload.single("image")(req, res, (err) => {
     if (err) return res.status(400).json({ error: err.message });
 
