@@ -914,6 +914,81 @@ async function loadResources() {
 
 // ================= ADD RESOURCE =================
 
+// Only these types accept a link instead of an uploaded file — books
+// (Campbell, Modern Biology, etc.) are frequently hundreds of MB, far
+// too large to store on the app's own disk.
+const LINKABLE_RESOURCE_TYPES = ["reference", "old_exam"];
+
+function toggleResourceExternalUrlField() {
+
+  const type = $("#resourceType")?.value || "";
+  const label = $("#resourceExternalUrlLabel");
+
+  if (!label) return;
+
+  label.style.display = LINKABLE_RESOURCE_TYPES.includes(type)
+    ? "block"
+    : "none";
+}
+
+
+// Uploads via XMLHttpRequest (instead of fetch) so we can show a real
+// progress bar. Large Test Bank / Explanation / Reference files can
+// take a while over a normal upload connection — that's expected and
+// isn't a bug, but with no feedback it looks like the page has frozen.
+// This just makes the wait visible so people know it's still working.
+function uploadResourceWithProgress(formData) {
+
+  return new Promise((resolve, reject) => {
+
+    const xhr = new XMLHttpRequest();
+
+    const wrap = $("#resourceUploadProgressWrap");
+    const bar = $("#resourceUploadProgressBar");
+    const text = $("#resourceUploadProgressText");
+
+    xhr.open("POST", "/api/resources");
+    xhr.withCredentials = true;
+
+    if (wrap) wrap.style.display = "block";
+
+    xhr.upload.addEventListener("progress", (e) => {
+      if (!e.lengthComputable) return;
+      const percent = Math.round((e.loaded / e.total) * 100);
+      if (bar) bar.style.width = `${percent}%`;
+      if (text) text.textContent = `Uploading… ${percent}%`;
+    });
+
+    xhr.onload = () => {
+
+      if (wrap) wrap.style.display = "none";
+
+      let data = {};
+      try {
+        data = JSON.parse(xhr.responseText || "{}");
+      } catch {
+        data = {};
+      }
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(data);
+      } else {
+        reject(new Error(data.error || "Something went wrong."));
+      }
+    };
+
+    xhr.onerror = () => {
+      if (wrap) wrap.style.display = "none";
+      reject(new Error(
+        "Upload failed — check your internet connection and try again."
+      ));
+    };
+
+    xhr.send(formData);
+  });
+}
+
+
 async function addResource(event) {
 
   event.preventDefault();
@@ -948,11 +1023,31 @@ async function addResource(event) {
   const fileInput =
     $("#resourceFile");
 
+  const externalUrl =
+    $("#resourceExternalUrl")?.value.trim() ||
+    "";
+
+  const hasFile =
+    fileInput &&
+    fileInput.files.length > 0;
+
 
   if (!type || !lo || !title) {
 
     showMessage(
       "Please fill in all required fields.",
+      "error"
+    );
+
+    return;
+  }
+
+  if (!hasFile && !externalUrl) {
+
+    showMessage(
+      LINKABLE_RESOURCE_TYPES.includes(type)
+        ? "Attach a file or paste a link (e.g. Google Drive)."
+        : "Please attach a file.",
       "error"
     );
 
@@ -988,30 +1083,35 @@ async function addResource(event) {
   );
 
 
-  if (
-    fileInput &&
-    fileInput.files.length > 0
-  ) {
+  if (hasFile) {
 
     formData.append(
       "file",
       fileInput.files[0]
     );
+
+  } else if (
+    LINKABLE_RESOURCE_TYPES.includes(type) &&
+    externalUrl
+  ) {
+
+    formData.append(
+      "externalUrl",
+      externalUrl
+    );
   }
 
 
+  const submitBtn = $("#resourceSubmitBtn");
+  if (submitBtn) submitBtn.disabled = true;
+
   try {
 
-    await api(
-      "/api/resources",
-      {
-        method: "POST",
-        body: formData,
-      }
-    );
+    await uploadResourceWithProgress(formData);
 
 
     form.reset();
+    toggleResourceExternalUrlField();
 
 
     showMessage(
@@ -1035,6 +1135,10 @@ async function addResource(event) {
       error.message,
       "error"
     );
+
+  } finally {
+
+    if (submitBtn) submitBtn.disabled = false;
   }
 }
 
@@ -1958,6 +2062,17 @@ function setupEventListeners() {
       "submit",
       addResource
     );
+
+
+  // "reference" / "old_exam" can be a link instead of a file (books are
+  // often far too large to upload) — show that field only for those.
+  $("#resourceType")
+    ?.addEventListener(
+      "change",
+      toggleResourceExternalUrlField
+    );
+
+  toggleResourceExternalUrlField();
 
 
   $("#eventForm")

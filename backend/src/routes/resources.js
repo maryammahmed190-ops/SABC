@@ -8,8 +8,23 @@ const { requireRole } = require("../middleware/auth");
 
 const router = express.Router();
 
-const VALID_TYPES = ["explanation", "connection", "video", "test_bank"];
+const VALID_TYPES = [
+  "explanation",
+  "connection",
+  "video",
+  "test_bank",
+  "guide",
+  "reference",
+  "old_exam",
+];
 const VALID_LOS = ["LO1", "LO2", "LO3", "LO4", "LO5", "LO6", "LO7", "LO8"];
+
+// Resource types where a link (e.g. Google Drive) is accepted instead of
+// an uploaded file. "reference" is the main one — biology textbooks are
+// often hundreds of MB, far too large to sit on the app's own disk
+// (especially on a free hosting tier with a small/ephemeral disk) — so
+// for these a plain link is stored and used as-is as the download URL.
+const LINKABLE_TYPES = ["reference", "old_exam"];
 
 function folderFor(type) {
   return type === "video" ? "videos" : "resources";
@@ -42,7 +57,7 @@ router.get("/", (req, res) => {
 
   if (type && !VALID_TYPES.includes(type)) {
     return res.status(400).json({
-      error: "Invalid resource type. Use explanation, connection, video, or test_bank.",
+      error: `Invalid resource type. Use one of: ${VALID_TYPES.join(", ")}.`,
     });
   }
   if (lo && !VALID_LOS.includes(lo)) {
@@ -61,9 +76,13 @@ router.get("/", (req, res) => {
       lo: r.lo,
       type: r.type,
       mime_type: r.mimeType || null,
+      // An uploaded file always wins if both exist; otherwise fall back
+      // to the external link (used by "reference" / "old_exam" so a huge
+      // textbook file never has to live on the server's own disk).
       download_url: r.filename
         ? `/uploads/${folderFor(r.type)}/${r.filename}`
-        : null,
+        : r.externalUrl || null,
+      external_url: r.externalUrl || null,
     }))
   );
 });
@@ -77,17 +96,28 @@ router.post("/", requireRole("admin", "academic"), (req, res) => {
     if (err) return res.status(400).json({ error: err.message });
 
     const { type, lo, title, description } = req.body || {};
+    const externalUrl = req.body && req.body.externalUrl
+      ? String(req.body.externalUrl).trim()
+      : "";
 
     if (!VALID_TYPES.includes(type)) {
+      if (req.file) fs.unlink(req.file.path, () => {});
       return res.status(400).json({
-        error: "Invalid resource type. Use explanation, connection, video, or test_bank.",
+        error: `Invalid resource type. Use one of: ${VALID_TYPES.join(", ")}.`,
       });
     }
     if (!VALID_LOS.includes(lo)) {
+      if (req.file) fs.unlink(req.file.path, () => {});
       return res.status(400).json({ error: "Invalid learning outcome." });
     }
     if (!title) {
+      if (req.file) fs.unlink(req.file.path, () => {});
       return res.status(400).json({ error: "Title is required." });
+    }
+
+    if (externalUrl && !/^https?:\/\//i.test(externalUrl)) {
+      if (req.file) fs.unlink(req.file.path, () => {});
+      return res.status(400).json({ error: "The link must start with http:// or https://." });
     }
 
     if (type === "test_bank") {
@@ -102,6 +132,22 @@ router.post("/", requireRole("admin", "academic"), (req, res) => {
       }
     }
 
+    // "reference" (and "old_exam") may be a link instead of an upload —
+    // books are frequently far too large to store on the app's own disk.
+    // Every other type still needs either a file or, now, a link.
+    if (!req.file && !externalUrl) {
+      return res.status(400).json({
+        error: LINKABLE_TYPES.includes(type)
+          ? "Attach a file or paste a link (e.g. Google Drive)."
+          : "A file is required.",
+      });
+    }
+    if (!LINKABLE_TYPES.includes(type) && !req.file && externalUrl) {
+      return res.status(400).json({
+        error: "A link is only accepted for Reference and Old Exam resources — upload a file for this type instead.",
+      });
+    }
+
     const db = readDB();
     const resource = {
       id: nextId(db, "resources"),
@@ -111,6 +157,7 @@ router.post("/", requireRole("admin", "academic"), (req, res) => {
       description: description ? String(description).trim() : "",
       filename: req.file ? req.file.filename : null,
       mimeType: req.file ? req.file.mimetype : null,
+      externalUrl: req.file ? null : externalUrl || null,
       createdAt: new Date().toISOString(),
     };
 

@@ -73,6 +73,7 @@ sqlite.exec(`
     type TEXT NOT NULL,
     filename TEXT,
     mimeType TEXT,
+    externalUrl TEXT,
     createdAt TEXT NOT NULL
   );
 
@@ -135,6 +136,23 @@ sqlite.exec(`
   CREATE INDEX IF NOT EXISTS idx_results_user_lo ON results(userId, lo);
   CREATE INDEX IF NOT EXISTS idx_certificates_user ON certificates(userId);
 `);
+
+// -------------------------
+// Safe migration for databases created before the "externalUrl" column
+// existed (e.g. an older db.sqlite already deployed on a live host).
+// "CREATE TABLE IF NOT EXISTS" above does nothing for a table that
+// already exists without this column, so it has to be added by hand —
+// but only once, and only if it isn't already there, or every restart
+// would throw "duplicate column name".
+// -------------------------
+(function ensureResourcesExternalUrlColumn() {
+  const columns = sqlite.prepare("PRAGMA table_info(resources)").all();
+  const hasExternalUrl = columns.some((c) => c.name === "externalUrl");
+  if (!hasExternalUrl) {
+    sqlite.exec("ALTER TABLE resources ADD COLUMN externalUrl TEXT;");
+    console.log("Migrated resources table: added externalUrl column.");
+  }
+})();
 
 const COLLECTIONS = [
   "users",
@@ -286,8 +304,8 @@ function writeDB(data) {
     }
 
     const insResource = sqlite.prepare(`
-      INSERT INTO resources (id, title, description, lo, type, filename, mimeType, createdAt)
-      VALUES (@id, @title, @description, @lo, @type, @filename, @mimeType, @createdAt)
+      INSERT INTO resources (id, title, description, lo, type, filename, mimeType, externalUrl, createdAt)
+      VALUES (@id, @title, @description, @lo, @type, @filename, @mimeType, @externalUrl, @createdAt)
     `);
     for (const r of data.resources || []) {
       insResource.run({
@@ -298,6 +316,7 @@ function writeDB(data) {
         type: n(r.type),
         filename: n(r.filename),
         mimeType: n(r.mimeType),
+        externalUrl: n(r.externalUrl),
         createdAt: n(r.createdAt) || new Date().toISOString(),
       });
     }

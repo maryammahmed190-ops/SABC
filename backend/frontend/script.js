@@ -295,6 +295,12 @@ function connectLOCards() {
     type = "connection";
   } else if (path.includes("videos")) {
     type = "video";
+  } else if (path.includes("guide")) {
+    type = "guide";
+  } else if (path.includes("old-exam")) {
+    type = "old_exam";
+  } else if (path.includes("reference")) {
+    type = "reference";
   }
 
   if (!type) return;
@@ -333,7 +339,17 @@ async function loadLOPage() {
     // RESOURCES + VIDEOS
     // =========================
 
-    if (type === "explanation" || type === "connection" || type === "test_bank" || type === "video") {
+    const RESOURCE_LIST_TYPES = [
+      "explanation",
+      "connection",
+      "test_bank",
+      "video",
+      "guide",
+      "reference",
+      "old_exam",
+    ];
+
+    if (RESOURCE_LIST_TYPES.includes(type)) {
       const resources = await api(
         `/api/resources?type=${encodeURIComponent(type)}&lo=${encodeURIComponent(lo)}`
       );
@@ -591,7 +607,9 @@ function renderResources(container, resources) {
         <p>${escapeHtml(resource.description || "")}</p>
         ${
           resource.download_url
-            ? `<a class="open-btn" href="${escapeAttr(resource.download_url)}">Open / Download</a>`
+            ? `<a class="open-btn" href="${escapeAttr(resource.download_url)}" target="_blank" rel="noopener">${
+                resource.external_url ? "Open Link" : "Open / Download"
+              }</a>`
             : ""
         }
       </article>

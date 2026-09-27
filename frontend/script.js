@@ -161,6 +161,10 @@ async function loadProfile() {
       menu.insertBefore(dashboard, menu.querySelector(".logout-btn"));
     }
 
+    // "My Certificate" only shows up for a student an admin/academic
+    // has actually uploaded a certificate for.
+    loadMyCertificates(menu);
+
     const logout = menu.querySelector(".logout-btn");
 
     if (logout) {
@@ -175,6 +179,40 @@ async function loadProfile() {
 }
 
 loadProfile();
+
+// =========================
+// MY CERTIFICATE
+// =========================
+
+async function loadMyCertificates(menu) {
+  try {
+    const certificates = await api("/api/certificates/me");
+
+    menu.querySelectorAll(".certificate-link").forEach((el) => el.remove());
+
+    if (!Array.isArray(certificates) || !certificates.length) return;
+
+    const logoutBtn = menu.querySelector(".logout-btn");
+
+    certificates.forEach((certificate) => {
+      const link = document.createElement("a");
+      link.className = "certificate-link";
+      link.href = certificate.download_url;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = certificate.title
+        ? `🏆 ${certificate.title}`
+        : "🏆 My Certificate";
+      link.style.display = "block";
+      link.style.margin = "12px 0";
+      link.style.color = "#0a463a";
+      link.style.fontWeight = "700";
+      menu.insertBefore(link, logoutBtn);
+    });
+  } catch (error) {
+    console.error(error);
+  }
+}
 
 const profileLetter = document.getElementById("profileLetter");
 const profileMenu = document.getElementById("profileMenu");
@@ -257,6 +295,12 @@ function connectLOCards() {
     type = "connection";
   } else if (path.includes("videos")) {
     type = "video";
+  } else if (path.includes("guide")) {
+    type = "guide";
+  } else if (path.includes("old-exam")) {
+    type = "old_exam";
+  } else if (path.includes("reference")) {
+    type = "reference";
   }
 
   if (!type) return;
@@ -295,7 +339,17 @@ async function loadLOPage() {
     // RESOURCES + VIDEOS
     // =========================
 
-    if (type === "explanation" || type === "connection" || type === "test_bank" || type === "video") {
+    const RESOURCE_LIST_TYPES = [
+      "explanation",
+      "connection",
+      "test_bank",
+      "video",
+      "guide",
+      "reference",
+      "old_exam",
+    ];
+
+    if (RESOURCE_LIST_TYPES.includes(type)) {
       const resources = await api(
         `/api/resources?type=${encodeURIComponent(type)}&lo=${encodeURIComponent(lo)}`
       );
@@ -310,14 +364,14 @@ async function loadLOPage() {
     }
 
     // =========================
-    // QUESTIONS
+    // QUIZ — gated behind the LO's published settings
     // =========================
 
-    const questions = await api(
-      `/api/questions?category=${encodeURIComponent(type)}&lo=${encodeURIComponent(lo)}`
+    const settings = await api(
+      `/api/quiz-settings/${encodeURIComponent(lo)}`
     );
 
-    if (!questions.length) {
+    if (!settings.published) {
       container.innerHTML = `
         <div class="content-card">
           <h3>No content yet</h3>
@@ -333,11 +387,68 @@ async function loadLOPage() {
       return;
     }
 
-    // =========================
-    // QUIZ
-    // =========================
+    renderQuizIntro(container, lo, settings);
+  } catch (error) {
+    container.innerHTML = `
+      <div class="content-card">
+        <h3>Error</h3>
+        <p>${escapeHtml(error.message)}</p>
+      </div>
+    `;
+  }
+}
+
+// =========================
+// QUIZ INTRO (description + "ابدأ الآن" button)
+// The description and Start Now button only render once the dashboard
+// has published the quiz for this LO — loadLOPage() already checked
+// settings.published before calling this.
+// =========================
+
+function renderQuizIntro(container, lo, settings) {
+  container.innerHTML = `
+    <article class="content-card" id="quizIntro">
+      <h3>Quiz</h3>
+      ${settings.description ? `<p>${escapeHtml(settings.description)}</p>` : ""}
+      ${
+        settings.duration
+          ? `<p><strong>Time limit:</strong> ${escapeHtml(String(settings.duration))} minutes</p>`
+          : ""
+      }
+      <button class="main-btn" id="startQuizBtn" type="button">ابدأ الآن</button>
+    </article>
+  `;
+
+  document.getElementById("startQuizBtn").addEventListener("click", () => {
+    startQuizAttempt(container, lo, settings);
+  });
+}
+
+// =========================
+// START QUIZ ATTEMPT — loads the questions, renders the form, and
+// starts the countdown timer set from the dashboard.
+// =========================
+
+async function startQuizAttempt(container, lo, settings) {
+  container.innerHTML = `<div class="content-card"><p>Loading quiz...</p></div>`;
+
+  try {
+    const questions = await api(
+      `/api/questions?category=quiz&lo=${encodeURIComponent(lo)}`
+    );
+
+    if (!questions.length) {
+      container.innerHTML = `
+        <div class="content-card">
+          <h3>No content yet</h3>
+          <p>Your Biology team can add quiz content for ${escapeHtml(lo)} from the backend.</p>
+        </div>
+      `;
+      return;
+    }
 
     container.innerHTML = `
+      ${settings.duration ? `<div class="content-card"><strong>Time left: <span id="quizTimer"></span></strong></div>` : ""}
       <form id="quizForm">
         ${questions
           .map(
@@ -365,8 +476,14 @@ async function loadLOPage() {
       </form>
     `;
 
-    document.getElementById("quizForm").addEventListener("submit", async (event) => {
-      event.preventDefault();
+    const quizForm = document.getElementById("quizForm");
+    let submitted = false;
+
+    async function submitQuiz() {
+      if (submitted) return;
+      submitted = true;
+
+      stopQuizTimer();
 
       const answers = {};
 
@@ -388,10 +505,30 @@ async function loadLOPage() {
           document.getElementById("quizResult"),
           `Your score: ${result.score}/${result.total} (${result.percentage}%)`
         );
+
+        quizForm.querySelectorAll("input, button[type='submit']").forEach((el) => {
+          el.disabled = true;
+        });
       } catch (error) {
+        submitted = false;
         showMessage(document.getElementById("quizResult"), error.message, true);
       }
+    }
+
+    quizForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      submitQuiz();
     });
+
+    if (settings.duration) {
+      startQuizTimer(settings.duration, () => {
+        showMessage(
+          document.getElementById("quizResult"),
+          "Time is up — submitting your answers automatically."
+        );
+        submitQuiz();
+      });
+    }
   } catch (error) {
     container.innerHTML = `
       <div class="content-card">
@@ -400,6 +537,50 @@ async function loadLOPage() {
       </div>
     `;
   }
+}
+
+// =========================
+// QUIZ TIMER
+// =========================
+
+let quizTimerInterval = null;
+
+function stopQuizTimer() {
+  if (quizTimerInterval) {
+    clearInterval(quizTimerInterval);
+    quizTimerInterval = null;
+  }
+}
+
+function startQuizTimer(durationMinutes, onExpire) {
+  stopQuizTimer();
+
+  let secondsLeft = Math.round(Number(durationMinutes) * 60);
+
+  const timerEl = document.getElementById("quizTimer");
+
+  function render() {
+    if (!timerEl) return;
+    const minutes = Math.floor(secondsLeft / 60);
+    const seconds = secondsLeft % 60;
+    timerEl.textContent = `${minutes}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  render();
+
+  quizTimerInterval = setInterval(() => {
+    secondsLeft -= 1;
+
+    if (secondsLeft <= 0) {
+      secondsLeft = 0;
+      render();
+      stopQuizTimer();
+      onExpire();
+      return;
+    }
+
+    render();
+  }, 1000);
 }
 
 // =========================
@@ -426,7 +607,9 @@ function renderResources(container, resources) {
         <p>${escapeHtml(resource.description || "")}</p>
         ${
           resource.download_url
-            ? `<a class="open-btn" href="${escapeAttr(resource.download_url)}">Open / Download</a>`
+            ? `<a class="open-btn" href="${escapeAttr(resource.download_url)}" target="_blank" rel="noopener">${
+                resource.external_url ? "Open Link" : "Open / Download"
+              }</a>`
             : ""
         }
       </article>

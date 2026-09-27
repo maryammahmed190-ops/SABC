@@ -464,6 +464,18 @@
                 Video
               </option>
 
+              <option value="guide">
+                Guide
+              </option>
+
+              <option value="reference">
+                Reference (textbook)
+              </option>
+
+              <option value="old_exam">
+                Old Exam
+              </option>
+
             </select>
 
           </label>
@@ -511,9 +523,41 @@
           </label>
 
 
+          <label id="resourceExternalUrlLabel" style="display:none;">
+
+            Link (Google Drive, etc.) — use this instead of a file for
+            large books
+
+            <input
+              id="resourceExternalUrl"
+              type="url"
+              placeholder="https://drive.google.com/...">
+
+          </label>
+
+
+          <div
+            id="resourceUploadProgressWrap"
+            style="display:none; margin: 8px 0;">
+
+            <div style="background:#e3e3e3; border-radius:6px; overflow:hidden; height:10px;">
+              <div
+                id="resourceUploadProgressBar"
+                style="background:#2e7d32; height:100%; width:0%; transition:width .15s;">
+              </div>
+            </div>
+
+            <p id="resourceUploadProgressText" style="font-size:12px; margin:4px 0 0;">
+              Uploading… 0%
+            </p>
+
+          </div>
+
+
           <button
             class="main-btn"
-            type="submit">
+            type="submit"
+            id="resourceSubmitBtn">
 
             Upload Resource
 
@@ -562,6 +606,18 @@
 
               <option value="video">
                 Video
+              </option>
+
+              <option value="guide">
+                Guide
+              </option>
+
+              <option value="reference">
+                Reference (textbook)
+              </option>
+
+              <option value="old_exam">
+                Old Exam
               </option>
 
             </select>
