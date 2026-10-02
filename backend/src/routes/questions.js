@@ -1,6 +1,6 @@
 const express = require("express");
 const { readDB, writeDB, nextId } = require("../db");
-const { requireRole } = require("../middleware/auth");
+const { requireRole, requireAuth } = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -10,7 +10,7 @@ const VALID_LOS = ["LO1", "LO2", "LO3", "LO4", "LO5", "LO6", "LO7", "LO8"];
 // =========================
 // GET /api/questions?category=&lo=
 // =========================
-router.get("/", (req, res) => {
+router.get("/", requireAuth, (req, res) => {
   const { category, lo } = req.query;
 
   if (!VALID_CATEGORIES.includes(category)) {

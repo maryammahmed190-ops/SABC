@@ -1,6 +1,6 @@
 const express = require("express");
 const { readDB, writeDB } = require("../db");
-const { requireRole } = require("../middleware/auth");
+const { requireRole, requireAuth } = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -22,7 +22,7 @@ router.get("/", requireRole("admin", "academic"), (req, res) => {
 // see the description or the Start Now button at all — so only the
 // "published" flag is returned in that case.
 // =========================
-router.get("/:lo", (req, res) => {
+router.get("/:lo", requireAuth, (req, res) => {
   const { lo } = req.params;
 
   if (!VALID_LOS.includes(lo)) {

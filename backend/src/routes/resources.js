@@ -4,7 +4,7 @@ const path = require("path");
 const fs = require("fs");
 const { v4: uuidv4 } = require("uuid");
 const { readDB, writeDB, nextId } = require("../db");
-const { requireRole } = require("../middleware/auth");
+const { requireRole, requireAuth } = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -16,6 +16,7 @@ const VALID_TYPES = [
   "guide",
   "reference",
   "old_exam",
+  "lo",
 ];
 const VALID_LOS = ["LO1", "LO2", "LO3", "LO4", "LO5", "LO6", "LO7", "LO8"];
 
@@ -24,12 +25,14 @@ const VALID_LOS = ["LO1", "LO2", "LO3", "LO4", "LO5", "LO6", "LO7", "LO8"];
 // often hundreds of MB, far too large to sit on the app's own disk
 // (especially on a free hosting tier with a small/ephemeral disk) — so
 // for these a plain link is stored and used as-is as the download URL.
-const LINKABLE_TYPES = ["reference", "old_exam"];
+// "lo" (the Learning Outcomes document) works the same way.
+const LINKABLE_TYPES = ["reference", "old_exam", "lo"];
 
-// These three are NOT tied to a Learning Outcome — each one is a single
+// These are NOT tied to a single Learning Outcome — each one is a single
 // whole item (a full textbook, a full old exam, one combined guide
-// file), not split per LO like Explanation/Connection/Test Bank/Video.
-const NO_LO_TYPES = ["guide", "reference", "old_exam"];
+// file, one LO overview document), not split per LO like Explanation/
+// Connection/Test Bank/Video.
+const NO_LO_TYPES = ["guide", "reference", "old_exam", "lo"];
 
 function folderFor(type) {
   return type === "video" ? "videos" : "resources";
@@ -57,7 +60,7 @@ const upload = multer({
 // "type" is optional — omit it (or pass nothing) to get every resource,
 // e.g. for an admin dashboard count/list of all uploaded resources.
 // =========================
-router.get("/", (req, res) => {
+router.get("/", requireAuth, (req, res) => {
   const { type, lo } = req.query;
 
   if (type && !VALID_TYPES.includes(type)) {
@@ -159,7 +162,7 @@ router.post("/", requireRole("admin", "academic"), (req, res) => {
     }
     if (!LINKABLE_TYPES.includes(type) && !req.file && externalUrl) {
       return res.status(400).json({
-        error: "A link is only accepted for Reference and Old Exam resources — upload a file for this type instead.",
+        error: "A link is only accepted for Reference, Old Exam, and LO resources — upload a file for this type instead.",
       });
     }
 

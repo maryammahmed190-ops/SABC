@@ -82,6 +82,25 @@ app.use("/api/quiz-settings", quizSettingsRoutes);
 app.use("/api/certificates", certificatesRoutes);
 app.use("/api/admin/users", usersRoutes);
 
+// Require a logged-in account before any page on the site can be
+// viewed — only the login and signup screens themselves stay public.
+// Runs before the static file server below, and only gates page
+// requests (HTML), not the CSS/JS/images/manifest those same pages
+// need in order to render the login screen itself.
+const PUBLIC_PAGES = ["/login.html", "/signup.html"];
+app.use((req, res, next) => {
+  if (req.method !== "GET" && req.method !== "HEAD") return next();
+
+  const isPageRequest = req.path === "/" || req.path.endsWith(".html");
+  if (!isPageRequest) return next();
+
+  if (PUBLIC_PAGES.includes(req.path)) return next();
+
+  if (req.session && req.session.userId) return next();
+
+  res.redirect("/login.html");
+});
+
 // Uploaded files (event images, resource files, videos)
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 

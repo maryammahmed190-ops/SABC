@@ -3,7 +3,7 @@ const multer = require("multer");
 const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const { readDB, writeDB, nextId } = require("../db");
-const { requireRole } = require("../middleware/auth");
+const { requireRole, requireAuth } = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -26,9 +26,10 @@ const upload = multer({
 });
 
 // =========================
-// GET /api/events
+// GET /api/events  (must be logged in — the whole site now requires
+// an account, so this is no longer reachable by a logged-out visitor)
 // =========================
-router.get("/", (req, res) => {
+router.get("/", requireAuth, (req, res) => {
   const db = readDB();
 
   const events = [...db.events].sort(
@@ -47,10 +48,10 @@ router.get("/", (req, res) => {
 });
 
 // =========================
-// POST /api/events  (admin only — Academic/IT team)
+// POST /api/events  (admin or academic team)
 // form-data: title, description, event_date, image (file, optional)
 // =========================
-router.post("/", requireRole("admin"), (req, res) => {
+router.post("/", requireRole("admin", "academic"), (req, res) => {
   upload.single("image")(req, res, (err) => {
     if (err) return res.status(400).json({ error: err.message });
 
@@ -80,9 +81,10 @@ router.post("/", requireRole("admin"), (req, res) => {
 });
 
 // =========================
-// DELETE /api/events/:id  (admin only)
+// DELETE /api/events/:id  (admin or academic team — whoever can create
+// an event can also remove it)
 // =========================
-router.delete("/:id", requireRole("admin"), (req, res) => {
+router.delete("/:id", requireRole("admin", "academic"), (req, res) => {
   const db = readDB();
   const idx = db.events.findIndex((e) => e.id === Number(req.params.id));
 

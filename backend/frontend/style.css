@@ -58,6 +58,40 @@ button {
   border-radius: 50%;
 }
 
+/* ================= BACK ARROW ================= */
+/* Sits next to the logo on every inner page and links back to Home.
+   Kept out of .main-nav on purpose so it stays visible on mobile,
+   where .main-nav is hidden behind the smaller screen. */
+
+.brand-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.back-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: rgba(240, 222, 197, 0.12);
+  color: #f0dec5;
+  transition: 0.3s;
+}
+
+.back-arrow svg {
+  width: 18px;
+  height: 18px;
+}
+
+.back-arrow:hover {
+  background: rgba(240, 222, 197, 0.25);
+  transform: translateX(-2px);
+}
+
 /* ================= NAVIGATION ================= */
 
 .main-nav {
@@ -542,6 +576,16 @@ footer {
 
   .main-nav {
     display: none;
+  }
+
+  .back-arrow {
+    width: 30px;
+    height: 30px;
+  }
+
+  .back-arrow svg {
+    width: 16px;
+    height: 16px;
   }
 
   .hero {

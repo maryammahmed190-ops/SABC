@@ -917,12 +917,13 @@ async function loadResources() {
 // Only these types accept a link instead of an uploaded file — books
 // (Campbell, Modern Biology, etc.) are frequently hundreds of MB, far
 // too large to store on the app's own disk.
-const LINKABLE_RESOURCE_TYPES = ["reference", "old_exam"];
+const LINKABLE_RESOURCE_TYPES = ["reference", "old_exam", "lo"];
 
-// These three are single whole items (one combined guide file, one
-// textbook, one old exam) — not split per Learning Outcome like
-// Explanation/Connection/Test Bank/Video — so no LO field for them.
-const NO_LO_RESOURCE_TYPES = ["guide", "reference", "old_exam"];
+// These are single whole items (one combined guide file, one textbook,
+// one old exam, one LO overview document) — not split per Learning
+// Outcome like Explanation/Connection/Test Bank/Video — so no LO field
+// for them.
+const NO_LO_RESOURCE_TYPES = ["guide", "reference", "old_exam", "lo"];
 
 function toggleResourceExternalUrlField() {
 
@@ -1230,7 +1231,8 @@ async function loadEvents() {
 
             ${
               currentUser &&
-              currentUser.role === "admin"
+              (currentUser.role === "admin" ||
+                currentUser.role === "academic")
                 ? `
                   <p>
                     <button
